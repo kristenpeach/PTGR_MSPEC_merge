@@ -20,10 +20,39 @@ library(gstat)
 
 
 ```
-```{r}
+```{r load_data}
 
+library(readr)
+ForR_PTGR_TubeID <- read_csv("ForR_PTGR_TubeID.csv")
+
+library(readr)
+ForR_Petal_MSPEC <- read_csv("ForR_Petal_MSPEC.csv")
+
+
+```
+
+```{r rename_files}
+
+PTGR <- ForR_PTGR_TubeID
+
+Petal <- ForR_Petal_MSPEC
+
+colnames(Petal)[colnames(Petal)=="Label"] <- "Photo_Name" #Giving the label column the same name for both files so that I can merge them
 
 
 
 ```
+
+```{r}
+
+Petal_PTGR <- full_join(Petal, PTGR, by = "Photo_Name")
+
+#Merged Petal and PTGR by Photo name! Yay!
+
+
+
+```
+
+
+
 
