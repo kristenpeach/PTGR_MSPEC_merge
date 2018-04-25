@@ -1,0 +1,29 @@
+---
+title: "Merging MSPEC and PTGR data 1"
+author: "Kristen Peach"
+date: "4/25/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(readr)
+library(gstat)
+
+
+```
+```{r}
+
+
+
+
+```
+
