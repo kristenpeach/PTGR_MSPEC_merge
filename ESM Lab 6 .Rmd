@@ -1,0 +1,272 @@
+---
+title: "ESM Lab 6- Chi Square Rank Based Tests"
+author: "Kristen Peach"
+date: "11/7/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages, message = FALSE}
+
+library(tidyverse)
+library(effsize)
+library(knitr)
+
+```
+
+
+
+###Part 1. Contingency Tables and Chi Squared
+
+Data: *UCSB Campus Climate Project Final Report* - type that into Google it will be the first result 
+
+Report considers survey responses about perception of the campus climate based on gender and respondents' position (undergrad, grad student, faculty, staff etc.).
+
+The question we'll consider is:  **Is there a significant difference in male and female perception of UCSB's support for family needs?**
+
+
+Statement from survey: "I feel that my department creates a climate that is responsive and supportive of family needs, including usage of work family policies"
+
+
+Respondents either:
+
+-Strongly agree
+-Agree
+-Disagree
+-Strongly Disagree
+
+a. Create a contingency table using data from the report
+
+```{r family_needs}
+
+Women <- c(44, 135, 31, 5)
+Men   <- c(89, 198, 20, 11)
+
+family_needs <- rbind(Women, Men) #Creates data fram by combining rows
+family_needs
+
+colnames(family_needs) <- c("Strongly Agree", "Agree", "Disagree", "Strongly Disagree")
+family_needs #This is our completed contingency table (for chi squared)
+
+
+
+```
+
+Question we may ask: *Is perception of a department's support for family needs (and usage of work-family policies) dependent on gender?*
+
+H0: Independence- How a person percieves departmental support for family needs is INDEPENDENT of gender
+H1: DEPENDENCE -How a person percieves departmental support for family needs is DEPENDENT of gender
+
+In Chi squared- We are testing to see whether there is enough evidence to make us think that the PROPORTIONS (NOT total numbers) in each group are actually different.
+
+So let's actually look at the proportions first (using the prop.table() function):
+
+```{r prop_table}
+
+family_prop_total <- prop.table(family_needs)
+family_prop_total
+#Calculated all the proportions for me. This calculates the proportions out of the TOTAL number of responses (not total men and total women). This doesnt make sense if were trying to compare men and women
+#We need to calculate the proportions using category totals (proportion of all men and proportion of all women)
+
+family_prop_by_row <- prop.table(family_needs, margin = 1) #Adding "margin = 1" finds the proportions of each outcome by ROW. margin = 2 would calculate the proportions by column
+family_prop_by_row
+
+
+```
+
+
+What this shows us so far is that similar proportions of men and women agree that UCSB is supportive of family needs and policy. However, more men 'Strongly Agree' with this statment and more women 'Disagree'. Now we want to know is there enough evidence to think they are significantly different? Or are the perceptions really the same and we just happened to take samples that have different proportions?
+
+H0: INDEPENDENCE- Proportions for each response are going to be the same for men and women
+H1: DEPENDENCE- Proportions for each response are significantly different for men and women
+
+```{r chisq_family}
+
+family_chi <- chisq.test(family_needs) #We use original table instead of the table or proportions we made. The chisq.test needs the raw values NOT the proportions.
+family_chi
+
+#There is a significant difference
+
+
+```
+
+
+
+We get a p-value of .006355 which means there is at least one column for which men and women answered significantly different from each other. 
+
+
+Conclusion: Perceptions of family needs support differs significantly for men and women ($\chi$^2^(3) = 12.3, p < 0.006, $\alpha$ = 0.05). Most notably, a greater proportion of women disagreed that UCSB is supportive of family needs and a greater proportion of men strongly agree. 
+
+Carrot value carrot- tells R to use a superscript (^2^)
+
+One dollar sign on either side of an equation creates an in-line equation
+Two dollar signs  on either side of an equation creates a standalone equation
+
+Let's look at the outputs and do our version of *post-hoc* analysis for chi- squared:
+
+```{r chi_outcomes}
+
+#Open help page (?chisq.test) and scroll to "Value" section
+
+family_chi$observed #to view the actual observed counts
+family_chi$expected #to view expected values if proportions were the same
+round(family_chi$expected, 0) #this will round the values in the table. The number indicates how many decimal points you'd like to include
+
+family_chi$residuals #To view residuals : (observed- expected)/ sqrt(expected)
+
+family_chi$stdres #To view standardized residuals: remember, if these are greater than (absolute value) 2, this may cause significance/dependence
+
+
+```
+
+
+The driving difference is that more women 'Disagree' with the statement. A borderline driving difference is that more men 'Strongly Agree' with the statement. You might say 'examination of the standardized residuals revealed that these were driving the significant differences.
+
+
+To graph this, let's get the data into a format that ggplot likes (using the expand.grid() function)
+
+```{r expanded_table}
+
+family_expand <- data.frame(expand.grid(rownames(family_prop_by_row), colnames(family_prop_by_row)), value = c(family_prop_by_row))
+
+
+colnames(family_expand) <- c("Gender", "Perception", "Proportion")
+colnames(family_expand)
+
+
+
+```
+
+
+
+
+```{r stacked_bar}
+
+ggplot(family_expand, aes(x = Gender, y= Proportion)) +
+  geom_col(aes(fill = Perception), width = 0.5) +
+  xlab("") +
+  theme_bw() +
+  scale_y_continuous(expand = c(0,0)) +
+  coord_flip()
+
+
+```
+
+###Part 2. Rank-based testing: Lily's vs. Los Agaves
+
+I surveyed two independent groups of people who have eaten at either Lily's or Los Agaves and they ranked their experience from 1(poor) to 5 (awesome). We want to know is there a significant difference in rankings for the two restaurants?
+
+What test should we do? Mann Whitney U, unpaired, two-sided, two sample.
+
+We're going to create mock samples of that data
+```{r taco_mwu}
+
+Lily <- c(1,3,4,3,3,4,5,3,3,2,1)
+LosAgaves <- c(2,2,4,5,4,5,3,4,3,2) #sample sizes do not need to be the same, data is unpaired
+
+#we are not using means so what is our central tendency? medians
+
+median(Lily)
+median(LosAgaves)
+
+# ?wilcox.test- Mann Whitney U is the EXACT same test as the 'Wilcoxon Rank Sum'. Wilcoxon Signed Rank is the paired version.
+
+taco_mwu <- wilcox.test( Lily, LosAgaves)
+taco_mwu
+
+#There is no significant difference in ranks (medians) between Lily's and Los Agaves (AKA they are the same level of awesome)
+
+#What if the question was "is Los Agaves better than Lily's?"
+
+#this makes it a one sided test instead od a two sided test
+
+taco_mwu_one_sided <- wilcox.test(LosAgaves, Lily, alternative = "greater")
+taco_mwu_one_sided
+
+#Still no significant difference. So Los agaves is not significantly better than Lily's.
+
+#Just so you know (wouldnt do this without a significant result)
+
+cliff.delta(Lily, LosAgaves)
+
+#this is the non parametric equivalent of Cohen's d
+#We (of course) get a small Cliff delta 
+
+```
+
+
+What if we surveyed the SAME group of people- first they went to Lily's and ranked their experience, then they all went to Los Agaves the next day and ranked their experience. We want to know: Did Los Agaves get ranked higher than Lily's?
+
+Data is now paired, test is one-sided.
+
+```{r taco_wsr}
+
+#Wilcoxon signed rank is the paired version
+
+#Create mock data
+
+Lily_Paired   <- c(3,2,4,1,5,4,2,3)
+Agaves_Paired <- c(4,5,4,3,2,5,5,4)
+
+taco_wsr <- wilcox.test(Agaves_Paired, Lily_Paired, paired = TRUE, alternative = "greater")
+taco_wsr
+
+#p value is .09 so Los Agaves is still not significantly better (ranked higher) than Lily's
+
+```
+
+
+###Part 3. Kruskal Wallis
+
+Kruskal Wallis is the nonparametric equivalent to one-way ANOVA (uses ranks/medians instead of means comparisons)
+
+Reference: Mimbres Mogollon Archaeology by Woosley and McIntrye, Univ. of New Mexico Press
+
+Data: depths (cm) of archaeological discoveries at 4 different locations
+
+
+Assume we tests for normality and equal variances and found that a non parametric test would be most appropriate (assumptions for parametric tests were not met).
+
+```{r load_arch_data}
+
+library(readr)
+archaeology <- read_csv("~/Desktop/ESM 206 F17/example:assignment data sets/archaeology.csv")
+
+#if using the most recent version of R and having trouble reading in data use the "from text(base)" option to import dataset (read.csv() instead of read_csv())
+
+#View(archaeology)
+
+#We need to stack all of this data into one column. Because this test and ggplot like data this way
+
+arch <- stack(archaeology)
+
+arch2 <- filter(arch, values != "NA")
+
+
+
+```
+
+!= means 'does not equal' using this to filter out NA 
+
+Perform Kruskal Wallis
+
+```{r arch_kw}
+
+arch_kw <- kruskal.test(values ~ ind, data = arch2)
+arch_kw
+
+#There is a significant difference in rankings of artifact  depths between at least two of the studied sites (stats...)
+
+#There are ~15 methods for post hoc testing with nonparametric tests
+
+#Dunne's test is the most commonly used for Kruskal Wallis
+
+
+```
+
+
+
+

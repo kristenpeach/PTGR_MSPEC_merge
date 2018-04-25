@@ -53,6 +53,43 @@ Petal_PTGR <- full_join(Petal, PTGR, by = "Photo_Name")
 
 ```
 
+```{r}
+
+library(readr)
+ForR_Blade_MSPEC <- read_csv("ForR_Blade_MSPEC.csv")
+
+Blade <- ForR_Blade_MSPEC
+
+library(readr)
+ForR_Claw_MSPEC <- read_csv("ForR_Claw_MSPEC.csv")
+
+Claw <- ForR_Claw_MSPEC
+
+PTGR_PCB <- full_join(Petal_PTGR, Claw, Blade, by = "Photo_Name")
+
+PTGR_PCB2 <- PTGR_PCB %>% 
+  filter(Pollen_Donor != "NA")
+
+colnames(PTGR_PCB2)[colnames(PTGR_PCB2)=="3_6"] <- "Pollen_Type" #Giving the label column the same name for both files so that I can merge them
+
+```
 
 
+```{r}
+
+pollen_type_anova <- aov( Comb_UVB_UVR_Mean ~ Pollen_Type, data = PTGR_PCB2)
+#lobster_anova
+
+summary(pollen_type_anova) #This gives you the p value, DF, sum sq, etc. 
+
+pollen_type_anova2 <- aov(lumSD_UV_PETAL ~ Pollen_Type, data = PTGR_PCB2)
+#lobster_anova
+
+summary(pollen_type_anova2) 
+
+
+
+
+
+```
 

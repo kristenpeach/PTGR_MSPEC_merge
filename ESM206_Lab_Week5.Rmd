@@ -1,0 +1,303 @@
+---
+title: "ESM206 Lab Week 5"
+subtitle: "Images, Levene's test, One Way ANOVA, Post-Hoc Tukey's, Graphs with Error Bars"
+author: "Kristen Peach"
+date: "10/31/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+
+library(tidyverse)
+library(knitr) #For getting images
+library(car) #To use Levene's test
+
+
+```
+
+
+##Part 1. Lobsters on the Santa Barbara Coastline- load and explore data
+
+We are interested in the sizes of lobsters at different locations along the Santa Barbara coastline.
+
+For more data and info, visit the SBC LTER website for the data: <http://sbc.lternet.edu/cgi-bin/showDataset.cgi?docid=knb-lter-sbc.77>
+
+*To insert a link just use a less than symbol paste the link then a greater than symbol*
+
+###a. Load Data
+
+```{r lobster_data}
+
+
+library(readr)
+lter_lobster <- read_csv("~/Desktop/ESM 206 F17/lter_lobster.csv")
+
+#Sometimes read.csv() works but read.csv() does not
+
+#Remember you cant have View() as active code anywhere in an Rmarkdown document
+
+
+```
+
+
+###b. We want to know which sites (and how many) show up in this data frame- where were lobsters sampled?
+
+To check for all distinct values/characters in a column name, we can use the *unique()* function
+
+```{r unique_locations}
+
+sites <- unique(lter_lobster$SITE) #Returns each unique value for the site column
+
+sites
+
+length(sites) #There are 5 different sites in our vector
+
+```
+
+Sites where lobsters are studied: Arroyo Quemado Reef (AQUE), Carpenteria Reef (CARP), Isla Vista Reef (IVEE), Mohawk Reef (MOHK), and Naples Reef (NAPL).
+
+###c. Where are these sites actually located? Let's include a map in our knitted document.
+
+-Save the image
+-Right click on the image --> properties
+-Copy file location
+-paste and change backslash to forward slash
+-include filename AND extensions (.png .jpg etc.)
+
+```{r add_image, out.width = "300px"}
+
+include_graphics("/Users/kristenpeach/Desktop/ESM 206 F17/lter_map.png")
+
+#Use out.width = in code chunk in the first line of chunk to change the size
+
+
+
+```
+
+
+
+###d. Simplify the data and convert it to case format
+
+Case format just means that each observation has its own row (which is what we want for the analyses we've done so far in R)
+
+We're only interested in columns SITE, SIZE, and COUNT( we want all dates and transects)
+
+```{r new_dataframe}
+
+ldf <- lter_lobster %>% 
+  select(SITE, SIZE, COUNT)
+
+#View(ldf)
+
+#COMMENT OUT VIEW FUNCTION
+
+
+
+```
+
+
+But data still isnt in case format...
+
+```{r case_format}
+
+sum(ldf$COUNT) #This gives us the expected number of rows in our expanded data frame (the one in case format)
+
+lobster_case <- ldf[rep(seq_len(nrow(ldf)), ldf$COUNT), 1:2]
+
+#Repeats each row in ldf data frame the number of times inthe COUNT column
+#There were some columns with the number 2 instead of 1 where they weighed two lobsters with the same exact weight so we want to expand that to two rows
+
+#This is how to convert to case format
+
+nrow(lobster_case)
+
+#This is just to check to make sure it worked
+
+
+```
+
+
+Now we have each lobster in its own row
+
+###e. Explore data for normality using boxplots, historgrams, QQ Plots, etc. 
+
+```{r exploring}
+
+#Quick box plot
+
+boxplot(SIZE ~ SITE, data = lobster_case)
+
+#Looks pretty normal, a few outliers here and there
+
+#Histogram by SITE
+
+ggplot(lobster_case, aes(x = SIZE)) +
+  geom_histogram(bins = 12) +
+  facet_wrap(~ SITE) #Group data by SITE
+
+#QQ Plots by SITE
+
+ggplot(lobster_case, aes(sample = SIZE)) +
+  geom_qq() +
+  facet_wrap(~ SITE) #Checks for normality by site, creates a QQ plot for each site
+
+#We want to change the scales because we dont care about differences in size we just care about the normality of each site 
+
+ggplot(lobster_case, aes(sample = SIZE)) +
+  geom_qq() +
+  facet_wrap(~ SITE, scales = "free") #Checks for normality by site, creates a QQ plot for each site
+
+#Data mostly looks pretty normal overall based on out samples
+#Just for my own benefit, what if I want to see what the mean sizes are at each site? Standard deviations?
+
+lobster_means <- aggregate(SIZE ~ SITE, data = lobster_case, FUN = mean) #This calculates mean lobster size at each site
+
+lobster_sds <- aggregate(SIZE ~ SITE, data = lobster_case, FUN = sd) #This calculates standard deviation lobster size at each site
+
+lobster_means
+lobster_sds
+
+
+```
+
+Our question: Are there significant differences in mean lobster sizes at the 5 different sites?
+
+##Part 2. Levene's Test and 'Guideline Test' for Equal Variances
+
+Levene's Test (leveneTest() function from the 'car' package) is an extension of F test for equal variances when we have more than two samples. 
+
+```{r levene_test}
+
+var_test <- leveneTest(SIZE ~ SITE, data = lobster_case)
+var_test
+
+#We get a very small p-value. Which means that we CANNOT say that the variances between sites are equal. 
+
+#We can't conclude that our variances are equal. 
+
+#H0: The variances are equal between all groups and sites
+#H1: The variances are unequal 
+
+#The ~ means 'grouped by' so we want the variance grouped by site
+
+# BUT there is a general guideline that if the largest sample variance is less than 4 times the size of the smallest variance, the assumption of equal variances for ANOVA is OK
+
+var_test_2 <- aggregate(SIZE ~ SITE, data = lobster_case, FUN = var) #calculates the sample variance in lobster size for each site
+var_test_2
+
+#Yes, the largest sample variance (253) is less than 4x the smallest variance (108). So we can still do an ANOVE and assume equal variance between sites
+
+```
+
+
+Now we have demonstrated that: 
+
+-Data is normally distributed
+-We have independent samples
+-That variances are close enough in magnitude (guideline test)
+- So we can now do an ANOVA!
+
+## Part 3. One-Way ANOVA to compare means of lobster sizes at the 5 locations
+
+The single *FACTOR* is *location*.
+There are *5 levels* of this factor (5 locations)
+The *random variable* is *lobster caripace size (mm)*
+
+```{r one_way_anova}
+
+#H0: There is no significant difference in mean lobster size between any of the sampled locations
+#H1: There is a significant difference in mean lobster size between at least two locations
+
+lobster_anova <- aov(SIZE ~ SITE, data = lobster_case)
+#lobster_anova
+
+summary(lobster_anova) #This gives you the p value, DF, sum sq, etc. 
+
+# p value is .006. There is a significant difference (in mean lobster sizes) between at least two sampled locations. 
+
+#Reminder, this is an omnibus test. The p value isnt telling us which sites are different, its just telling us there is a difference between at least two sites. 
+
+
+
+
+
+
+
+```
+
+**Reminder, this is an omnibus test. The p value isnt telling us which sites are different, its just telling us there is a difference between at least two sites.**
+
+
+To determine where the differences we need to do post hoc testing
+
+## Part 4. Post-Hoc Testing using Tukey's HSD
+
+Null and alternative hypotheses are similar to ANOVA but Tukey's HSD is a pairwise test.
+
+H0: There is no significant difference in mean lobster size between any of the sampled locations
+H1: There is a significant difference in mean lobster size between at least two locations
+
+```{r Tukey_HSD}
+
+post_hoc <- TukeyHSD(lobster_anova)
+post_hoc
+
+
+#Here were only really looking at the first column and the last column, which shows pairwise comparisons between sites and the p value for that comparison.
+
+
+```
+
+Lobster sizes differed significantly by location (one-way ANOVA, F(4,972) = 3.6, p = 0.006). Post-Hoc testing by Tukey's HSD revealed significant size differences between lobsters at Naples Reef and Arroyo Quemado Reed (p = 0.03) and between Naples Reef and Isla Vista Reef (p = 0.007). All other post hoc comparisons reveal no significant differences. Notably the difference in means was small even when significant, with the highest mean caripace length (78.2mm at Naples Reef) only exceeding the lowest (74.2mm at Isla Vista Reef) by less than 4mm. 
+
+##Part 5. Make a graph (with error bars) and indicate significant differences
+
+Let's make a graph of the means and standard deviations and indicate significant differences between sites. 
+
+
+```{r graph_means_sds}
+
+df <- data.frame(lobster_means, lobster_sds$SIZE)
+#df
+
+colnames(df) <- c("Location", "Mean", "SD")
+
+#Sucessfully changes the column names. 
+
+ggplot(df, aes(x = Location, y = Mean)) +
+  geom_col(fill = "gray70") +
+  geom_errorbar(aes (ymin = Mean - SD, ymax = Mean + SD), colour = "black", width = 0.1) +
+  annotate("text", x = 1, y = 87, label = "*", size = 7) + 
+  annotate("text", x = 5, y = 95, label = "*", size = 7) +
+  annotate("text", x = 3, y = 92, label = "**", size = 7) +
+  annotate("text", x = 5, y = 90, label = "**", size = 7) +
+  ylab("Lobster Caripace Length (mm)") +
+  ggtitle("Lobster Sizes on the Santa Barbara Coast (2012-2014)\n")
+
+#The 87 and 95 are the height you want the asterisks to appears based on the y axis actual values. So the the asterisk appears at the height of 87 and 95 sized mean caripaces size. 
+
+
+```
+
+
+
+
+**Figure 1.Lobster Sizes on the Santa Barbara Coast (2012-2014).** Mean lobster caripace lengths recorded at 5 locations: Arroyo Quemado Reef (AQUE; n = 170), Carpenteria Reef (CARP; n = 249), Isla Vista Reef (IVEE; n = 198), Mohawk Reef (MOHK; n = 132), and Naples Reef (NAPL; n = 228). Error bars indicate +/- 1 standard deviation from the mean. Lobster sizes differ significantly by location (one-way ANOVA, F(4, 972) = 3.6, p = 0.006); pairwise significant differences (by post-hoc Tukey's HSD) are between NAPL and AQUE (p= 0.03, single asterisk) and between IVEE and NAPL (p = 0.007, double asterisk). Data source: Santa Barbara Coastal Long Term Ecological Research Program [1]. 
+
+[1] Reed, D.C. (2014)....citation
+
+
+
+
+
+
+
+
+
+
+
+
